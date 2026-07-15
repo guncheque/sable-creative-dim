@@ -1,0 +1,6 @@
+{
+  "variants": {
+    "axis=x": { "model": "sablecreativedim:block/creative_dim_portal" },
+    "axis=z": { "model": "sablecreativedim:block/creative_dim_portal", "y": 90 }
+  }
+}

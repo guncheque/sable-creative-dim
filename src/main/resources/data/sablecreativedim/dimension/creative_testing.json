@@ -1,0 +1,21 @@
+{
+  "type": "sablecreativedim:creative_testing",
+  "generator": {
+    "type": "minecraft:flat",
+    "settings": {
+      "layers": [
+        {
+          "block": "minecraft:air",
+          "height": 64
+        },
+        {
+          "block": "minecraft:grass_block",
+          "height": 1
+        }
+      ],
+      "biome": "minecraft:the_void",
+      "lakes": false,
+      "features": false
+    }
+  }
+}

@@ -1,0 +1,55 @@
+modLoader="javafml" #mandatory
+loaderVersion="${loader_version_range}" #mandatory
+license="${mod_license}"
+
+[[mods]] #mandatory
+modId="${mod_id}" #mandatory
+version="${mod_version}" #mandatory
+displayName="${mod_name}" #mandatory
+authors="${mod_authors}" #optional
+description='''${mod_description}'''
+
+[[dependencies.${mod_id}]]
+    modId="neoforge"
+    type="required"
+    versionRange="${neo_version_range}"
+    ordering="NONE"
+    side="BOTH"
+
+[[dependencies.${mod_id}]]
+    modId="minecraft"
+    type="required"
+    versionRange="${minecraft_version_range}"
+    ordering="NONE"
+    side="BOTH"
+
+# Soft-depend on Create / Sable / Aeronautics so this loads after them and
+# the world/dimension registry has their block/physics registrations ready,
+# without hard-requiring them to be present for the mod to load at all.
+# Versions pinned to what's actually on the server; bump alongside the jars
+# in libs/ if you update those.
+[[dependencies.${mod_id}]]
+    modId="create"
+    type="optional"
+    versionRange="[6.0.10,)"
+    ordering="AFTER"
+    side="BOTH"
+
+[[dependencies.${mod_id}]]
+    modId="sable"
+    type="optional"
+    versionRange="[1.2.2,)"
+    ordering="AFTER"
+    side="BOTH"
+
+# NOTE: I couldn't verify Aeronautics' real internal modId (guessed
+# create_aeronautics below). If the build/load complains about this specific
+# entry, unzip create-aeronautics-bundled-1.21.1-1.2.1.jar and check its own
+# META-INF/neoforge.mods.toml for the real modId, or just delete this block
+# -- it's optional and only affects load ordering, not functionality.
+[[dependencies.${mod_id}]]
+    modId="create_aeronautics"
+    type="optional"
+    versionRange="[1.2.1,)"
+    ordering="AFTER"
+    side="BOTH"
