@@ -17,6 +17,16 @@ Aeronautics is "all rights reserved," so this only *depends on* their jars
 at compile/runtime like any other NeoForge addon would.
 
 ---
+**This mod was built collaboratively with Claude (Anthropic's AI)**, through
+an extended back-and-forth of implementation, live testing, and real bug
+fixes on an actual server -- not a one-shot generation. I'm stating that
+plainly rather than passing the code off as entirely hand-written. It's
+been through genuine debugging, including two confirmed real exploits
+(not just theoretical) found through actual multiplayer use and fixed the
+same way -- see [CHANGELOG.md](CHANGELOG.md) for the full history if
+you're curious how any of this came together.
+
+---
 
 ## 1. Requirements on Arch (fish shell)
 
