@@ -18,7 +18,7 @@ at compile/runtime like any other NeoForge addon would.
 
 ---
 
-## 1. Requirements on CachyOS (fish shell)
+## 1. Requirements on Arch (fish shell)
 
 Just JDK 21 -- the project's own `gradlew` handles Gradle itself (it will
 download Gradle 8.14.2 automatically on first run, pinned in
