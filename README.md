@@ -5,6 +5,15 @@ scoped for building/testing Sable + Create Aeronautics contraptions, entered
 and left via `/creativedim enter` / `/creativedim leave`. Replaces the "Plan"
 mod, which didn't produce real physics-compatible blocks/entities.
 
+**This mod was built collaboratively with Claude (Anthropic's AI)**, through
+an extended back-and-forth of implementation, live testing, and real bug
+fixes on an actual server -- not a one-shot generation. I'm stating that
+plainly rather than passing the code off as entirely hand-written. It's
+been through genuine debugging, including two confirmed real exploits
+(not just theoretical) found through actual multiplayer use and fixed the
+same way -- see [CHANGELOG.md](CHANGELOG.md) for the full history if
+you're curious how any of this came together.
+
 **This project is built directly from NeoForge's own official MDK**
 (`neoforged/MDK`, `archive/1.21` branch -- the correct one for Minecraft
 1.21.1) rather than hand-assembled Gradle config. Earlier drafts of this
@@ -17,18 +26,8 @@ Aeronautics is "all rights reserved," so this only *depends on* their jars
 at compile/runtime like any other NeoForge addon would.
 
 ---
-**This mod was built collaboratively with Claude (Anthropic's AI)**, through
-an extended back-and-forth of implementation, live testing, and real bug
-fixes on an actual server -- not a one-shot generation. I'm stating that
-plainly rather than passing the code off as entirely hand-written. It's
-been through genuine debugging, including two confirmed real exploits
-(not just theoretical) found through actual multiplayer use and fixed the
-same way -- see [CHANGELOG.md](CHANGELOG.md) for the full history if
-you're curious how any of this came together.
 
----
-
-## 1. Requirements on Arch (fish shell)
+## 1. Requirements on CachyOS (fish shell)
 
 Just JDK 21 -- the project's own `gradlew` handles Gradle itself (it will
 download Gradle 8.14.2 automatically on first run, pinned in
@@ -69,8 +68,8 @@ against:
 | Mod | Version | Modrinth page |
 |---|---|---|
 | Create | 6.0.10 | https://modrinth.com/mod/create |
-| Sable | 1.2.2 | https://modrinth.com/mod/sable |
-| Create Aeronautics | 1.2.1 | https://modrinth.com/mod/create-aeronautics |
+| Sable | 2.0.3 | https://modrinth.com/mod/sable |
+| Create Aeronautics | 1.3.0 | https://modrinth.com/mod/create-aeronautics |
 | Curios API | 9.5.1+1.21.1 | https://modrinth.com/mod/curios |
 
 Every coordinate in `build.gradle` was independently verified against
@@ -232,12 +231,8 @@ valid-looking frame doesn't light, that's the first place to look.
 
 ## Development history
 
-This mod has a real bug-fix history worth reading if you're extending it
-or curious how it got here — see [CHANGELOG.md](CHANGELOG.md). Two of
-those were confirmed real exploits (not just theoretical): Curios
-accessory slots and Ender Chests both let players bypass the inventory
-separation between survival and creative before being caught and fixed
-through actual multiplayer testing.
+The full bug-fix history is in [CHANGELOG.md](CHANGELOG.md) -- worth a
+read if you're extending this mod or just curious how it got here.
 
 ## Contributing
 

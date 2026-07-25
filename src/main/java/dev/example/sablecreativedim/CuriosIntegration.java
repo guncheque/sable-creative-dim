@@ -46,14 +46,33 @@ public final class CuriosIntegration {
         ICuriosItemHandler handler = handlerOpt.get();
         ListTag saved = handler.saveInventory(false);
 
-        IItemHandlerModifiable equipped = handler.getEquippedCurios();
-        for (int i = 0; i < equipped.getSlots(); i++) {
-            equipped.setStackInSlot(i, ItemStack.EMPTY);
-        }
+        clearAll(player);
         return saved;
     }
 
-    /** Restores a previously-saved Curios inventory. No-op if data is null or the player has no Curios handler. */
+    /**
+     * Empties every Curios slot without saving anything -- the anti-cheat
+     * wipe step, exactly mirroring what Inventory#clearContent() already
+     * does for the main inventory before a restore. MUST be called before
+     * restore() on the way out, not just relied on implicitly: since our
+     * own saved data only records non-empty slots (sparse save, same
+     * convention as ItemStackNbtUtil), loadInventory(...) has nothing to
+     * overwrite an item with if that slot was empty at snapshot time --
+     * without an explicit clear first, an item equipped into a
+     * previously-empty slot during a creative visit would survive
+     * straight through to survival untouched. This was a real, confirmed
+     * bug (goggles in the head slot crossing over), not a theoretical one.
+     */
+    public static void clearAll(ServerPlayer player) {
+        CuriosApi.getCuriosInventory(player).ifPresent(handler -> {
+            IItemHandlerModifiable equipped = handler.getEquippedCurios();
+            for (int i = 0; i < equipped.getSlots(); i++) {
+                equipped.setStackInSlot(i, ItemStack.EMPTY);
+            }
+        });
+    }
+
+    /** Restores a previously-saved Curios inventory. Does NOT clear current contents first -- call clearAll(player) beforehand if that's needed (it is, for the leave() anti-cheat flow). No-op if data is null or the player has no Curios handler. */
     public static void restore(ServerPlayer player, ListTag data) {
         if (data == null) {
             return;

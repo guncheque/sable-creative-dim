@@ -228,8 +228,22 @@ public final class AmethystFrameHelper {
         int interiorWidth = outerWidth - 2;
         int interiorHeight = outerHeight - 2;
 
+        // DIAGNOSTIC: temporary logging to pin down a real reported bug
+        // (custom-size frames failing to light) that wasn't conclusively
+        // explained by re-reading the algorithm alone. Safe to remove
+        // once the real cause is confirmed from actual server output.
+        System.out.println("[sablecreativedim] findFrame(axis=" + axis + "): clicked=" + start
+                + " seed=" + seed + " connectedAmethystCount=" + connected.size()
+                + " boundingBox=(" + minX + "," + minY + ")-(" + maxX + "," + maxY + ")"
+                + " outerWH=" + outerWidth + "x" + outerHeight
+                + " interiorWH=" + interiorWidth + "x" + interiorHeight);
+
         if (interiorWidth < MIN_INTERIOR_WIDTH || interiorWidth > MAX_INTERIOR_WIDTH
                 || interiorHeight < MIN_INTERIOR_HEIGHT || interiorHeight > MAX_INTERIOR_HEIGHT) {
+            System.out.println("[sablecreativedim] findFrame REJECTED: interior size " + interiorWidth
+                    + "x" + interiorHeight + " outside allowed range ["
+                    + MIN_INTERIOR_WIDTH + "-" + MAX_INTERIOR_WIDTH + "] x ["
+                    + MIN_INTERIOR_HEIGHT + "-" + MAX_INTERIOR_HEIGHT + "]");
             return null;
         }
 
@@ -242,10 +256,14 @@ public final class AmethystFrameHelper {
                 BlockState state = level.getBlockState(pos);
                 if (isBorder) {
                     if (!state.is(Blocks.AMETHYST_BLOCK)) {
+                        System.out.println("[sablecreativedim] findFrame REJECTED: expected AMETHYST at "
+                                + "border position " + pos + " but found " + state.getBlock());
                         return null;
                     }
                 } else {
                     if (!state.isAir()) {
+                        System.out.println("[sablecreativedim] findFrame REJECTED: expected AIR at "
+                                + "interior position " + pos + " but found " + state.getBlock());
                         return null;
                     }
                 }
@@ -255,6 +273,8 @@ public final class AmethystFrameHelper {
         BlockPos interiorMin = axis == Direction.Axis.X
                 ? new BlockPos(minX + 1, minY + 1, fixedCoord)
                 : new BlockPos(fixedCoord, minY + 1, minX + 1);
+        System.out.println("[sablecreativedim] findFrame SUCCESS: interior origin=" + interiorMin
+                + " " + interiorWidth + "x" + interiorHeight);
         return new Rect(interiorMin, interiorWidth, interiorHeight);
     }
 

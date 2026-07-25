@@ -141,6 +141,9 @@ public final class CreativeDimTeleporter {
             AmethystFrameHelper.ensureReturnPortal(target);
         }
 
+        // Same fall-through race as the leave() path -- see
+        // ensureChunkLoaded's javadoc for the full explanation.
+        ensureChunkLoaded(target, targetPos.getX(), targetPos.getZ());
         player.teleportTo(target, targetPos.getX() + 0.5, targetPos.getY(), targetPos.getZ() + 0.5,
                 player.getYRot(), player.getXRot());
 
@@ -212,9 +215,23 @@ public final class CreativeDimTeleporter {
         }
 
         if (overridePos != null) {
+            // Force the destination chunk to actually finish loading
+            // BEFORE placing the player there. Without this, there's a
+            // real timing race: teleportTo() can place the player at the
+            // target coordinates before that chunk has finished loading
+            // server-side, so gravity applies against a not-yet-real
+            // world for a moment -- the player briefly falls through,
+            // then gets corrected back to the surface once the chunk
+            // catches up. This is a known class of bug with
+            // cross-dimension teleports generally, not specific to
+            // anything else in this mod. getChunk(...) without an extra
+            // status argument blocks until the chunk is fully loaded,
+            // turning the race into a guaranteed ordering instead.
+            ensureChunkLoaded(target, overridePos.getX(), overridePos.getZ());
             player.teleportTo(target, overridePos.getX() + 0.5, overridePos.getY(), overridePos.getZ() + 0.5,
                     player.getYRot(), player.getXRot());
         } else {
+            ensureChunkLoaded(target, (int) snapshot.position().x, (int) snapshot.position().z);
             player.teleportTo(target, snapshot.position().x, snapshot.position().y, snapshot.position().z,
                     snapshot.yRot(), snapshot.xRot());
         }
@@ -226,6 +243,7 @@ public final class CreativeDimTeleporter {
         player.onUpdateAbilities();
 
         restoreInventory(player.getInventory(), snapshot);
+        CuriosIntegration.clearAll(player);
         CuriosIntegration.restore(player, snapshot.curios());
 
         player.sendSystemMessage(Component.literal(
@@ -236,6 +254,20 @@ public final class CreativeDimTeleporter {
 
     public static boolean isInside(UUID playerId) {
         return SNAPSHOTS.containsKey(playerId);
+    }
+
+    /**
+     * Forces the chunk containing (blockX, blockZ) to finish loading
+     * synchronously before we place a player there. `getChunk(int, int)`
+     * without an extra status argument is a long-stable vanilla API that
+     * blocks until the chunk is actually loaded, rather than returning
+     * immediately and loading in the background -- exactly what closes
+     * the fall-through race window. High confidence on this one (it's a
+     * very old, foundational API), but still not javap-verified against
+     * this exact jar the way some other spots in this mod have been.
+     */
+    private static void ensureChunkLoaded(ServerLevel level, int blockX, int blockZ) {
+        level.getChunk(blockX >> 4, blockZ >> 4);
     }
 
     private static ItemStack[] copyOf(NonNullList<ItemStack> list) {

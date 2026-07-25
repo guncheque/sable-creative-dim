@@ -130,3 +130,87 @@ concrete case that got found and confirmed. Other global storage in this
 modpack (an ender-linked backpack upgrade, a cross-dimension ME network
 terminal, etc.) could have the same category of issue -- not covered by
 this fix, since nothing else has been reported or tested yet.
+
+## 15. Updated to Sable 2.0.3 / Create Aeronautics 1.3.0 -- real risk, not routine
+
+Bumped from Sable 1.2.2 to **2.0.3** and Create Aeronautics 1.2.1 to
+**1.3.0**. These two updates are NOT the same risk level, worth treating
+differently:
+
+**Create Aeronautics 1.3.0** looks like a clean, purely additive minor
+release (new Gyroscopic Mechanism texture, FE transfer on Docking
+Connectors) -- low risk.
+
+**Sable 2.0.0** (which 2.0.3 sits on top of, per its own changelog) was a
+real major-version jump with genuinely concerning items in its own
+changelog: "Update NeoForge version," "Update the physics constraint
+API," and specifically "Mark some internal Sable classes as internal."
+That last one matters less than it might sound for this specific mod --
+`sable-creative-dim`'s own Java code never directly imports any
+`dev.ryanhcode.sable.*` classes; Sable just observes our custom dimension
+transparently the same way it observes the overworld, which is exactly
+what the earlier `DimensionPhysics.createDefault(Level)` research (see
+README section on dimension setup) confirmed is dimension-agnostic by
+design. So a major Sable version bump is lower-risk for *this* mod than
+it would be for something that actually calls into Sable's API surface
+directly (like the bridging-mod project explored separately).
+
+Still explicitly untested as of this entry -- this update was made
+without the ability to compile-test or run the actual mod (same sandbox
+network limitation as always). The `versionRange` in `neoforge.mods.toml`
+was deliberately kept tight (`[2.0.3,)`, not loosened to something like
+`[2.0.0,)`) specifically because of the major-version risk -- don't widen
+it without actually testing against whatever you're widening it to.
+
+One incomplete item from this update, since resolved: Sable's exact
+Modrinth version ID for 2.0.3 couldn't be pinned down through search
+(Modrinth's versions list is JS-rendered), so `build.gradle` briefly had
+a placeholder there. Confirmed real value:
+`maven.modrinth:T9PomCSv:1L6XJqnY`.
+
+## 16. Fixed: intermittent fall-through-then-correct on leaving the creative dimension
+
+Reported symptom: occasionally, leaving the creative dimension would drop
+the player briefly through the world before they got teleported back up
+to the correct surface position -- intermittent, not every time.
+
+This is a known class of bug with cross-dimension teleports generally:
+`teleportTo(...)` can place a player at target coordinates before that
+chunk has actually finished loading server-side, so gravity applies
+against a not-yet-real world for a moment, and the player falls until the
+chunk catches up and the server corrects their position. The
+intermittency matches this exactly -- it only shows up when the
+destination chunk wasn't already loaded/cached at the moment of teleport.
+
+Fixed by adding `ensureChunkLoaded(...)` (in `CreativeDimTeleporter.java`),
+called right before every `teleportTo(...)` call in both `enter()` and
+`leave()`. It calls `ServerLevel#getChunk(int, int)` without an extra
+status argument, which blocks until the chunk is genuinely loaded, turning
+the race into a guaranteed ordering instead of a timing gamble. Applied to
+both directions (entering and leaving) even though it was only reported on
+leave, since the underlying cause applies equally to either teleport.
+
+## 17. Fixed: real exploit -- Curios items equipped mid-visit could survive back into survival
+
+Reported symptom: goggles in the Curios head slot sometimes ended up in
+the player's survival inventory after leaving the creative dimension.
+
+Root cause: `CuriosIntegration.restore(...)` called `loadInventory(data)`
+on the way out, but nothing ever explicitly cleared the player's CURRENT
+Curios state first -- unlike the main inventory, which already has an
+explicit `clearContent()` wipe before its own restore. Our saved Curios
+data only records non-empty slots (same sparse-save convention as
+`ItemStackNbtUtil`), so if a slot was empty at snapshot time, there was
+nothing in the saved data to overwrite a NEW item equipped into that same
+slot during the visit -- it just survived the "restore" untouched. Same
+class of exploit as the original Curios bug (section 12), just missing
+one explicit step that main-inventory restore already had.
+
+Fixed by adding `CuriosIntegration.clearAll(player)` -- a plain "empty
+every slot, save nothing" operation -- called immediately before
+`restore(...)` in `CreativeDimTeleporter.leave()`, mirroring exactly how
+`player.getInventory().clearContent()` already works for the main
+inventory. Worth testing deliberately: enter with an empty Curios head
+slot, equip something into it while inside, leave, confirm it's gone
+(not carried to survival) and whatever was originally there (if
+anything) is correctly back.

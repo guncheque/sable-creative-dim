@@ -26,8 +26,8 @@ description='''${mod_description}'''
 # Soft-depend on Create / Sable / Aeronautics so this loads after them and
 # the world/dimension registry has their block/physics registrations ready,
 # without hard-requiring them to be present for the mod to load at all.
-# Versions pinned to what's actually on the server; bump alongside the jars
-# in libs/ if you update those.
+# Versions pinned to what's actually on the server; bump alongside build.gradle
+# if you update those.
 [[dependencies.${mod_id}]]
     modId="create"
     type="optional"
@@ -35,21 +35,26 @@ description='''${mod_description}'''
     ordering="AFTER"
     side="BOTH"
 
+# Sable 2.0.3 -- the lower bound here is intentionally left at the exact
+# tested version rather than opened up wider ("[2.0.0,)" or similar),
+# since Sable 2.0.0 was a real major-version jump with documented breaking
+# internal changes (see CHANGELOG.md). Don't loosen this range without
+# actually testing against whatever version you're loosening it to.
 [[dependencies.${mod_id}]]
     modId="sable"
     type="optional"
-    versionRange="[1.2.2,)"
+    versionRange="[2.0.3,)"
     ordering="AFTER"
     side="BOTH"
 
 # NOTE: I couldn't verify Aeronautics' real internal modId (guessed
 # create_aeronautics below). If the build/load complains about this specific
-# entry, unzip create-aeronautics-bundled-1.21.1-1.2.1.jar and check its own
+# entry, unzip create-aeronautics-bundled-1.21.1-1.3.0.jar and check its own
 # META-INF/neoforge.mods.toml for the real modId, or just delete this block
 # -- it's optional and only affects load ordering, not functionality.
 [[dependencies.${mod_id}]]
     modId="create_aeronautics"
     type="optional"
-    versionRange="[1.2.1,)"
+    versionRange="[1.3.0,)"
     ordering="AFTER"
     side="BOTH"
