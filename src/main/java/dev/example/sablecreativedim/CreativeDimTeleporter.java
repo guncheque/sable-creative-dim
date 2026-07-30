@@ -2,6 +2,7 @@ package dev.example.sablecreativedim;
 
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.NonNullList;
+import net.minecraft.nbt.ListTag;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.server.MinecraftServer;
@@ -133,6 +134,10 @@ public final class CreativeDimTeleporter {
         CreativeLoadout loadout = LOADOUTS.get(player.getUUID());
         if (loadout != null) {
             applyLoadout(inv, loadout);
+            // Safe to restore directly, no extra clearAll() needed here --
+            // curiosData/stashAndClear() above already emptied every
+            // Curios slot for the (separate) survival-snapshot purpose.
+            CuriosIntegration.restore(player, loadout.curios());
         }
 
         if (ensurePortalExists) {
@@ -187,11 +192,17 @@ public final class CreativeDimTeleporter {
         // the anti-cheat wipe below discards it -- this is the actual QoL
         // feature: builders get their palette/tools back automatically on
         // their next /creativedim enter instead of starting from scratch.
+        // Curios captured non-destructively (saveOnly, not stashAndClear)
+        // -- clearing happens separately below via clearAll(), same as
+        // it always did; this call must not clear anything itself, or it
+        // would double up with (and race) that existing step.
         Inventory currentInv = player.getInventory();
+        ListTag creativeCurios = CuriosIntegration.saveOnly(player);
         CreativeLoadout loadout = new CreativeLoadout(
                 copyOf(currentInv.items),
                 copyOf(currentInv.armor),
-                currentInv.offhand.get(0).copy()
+                currentInv.offhand.get(0).copy(),
+                creativeCurios
         );
         LOADOUTS.put(player.getUUID(), loadout);
         if (server != null) {

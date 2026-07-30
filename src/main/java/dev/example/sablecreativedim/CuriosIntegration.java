@@ -72,6 +72,20 @@ public final class CuriosIntegration {
         });
     }
 
+    /**
+     * Non-destructive: saves the player's current Curios inventory
+     * WITHOUT clearing anything. Used for capturing the creative loadout
+     * (what to restore next time they enter) -- distinct from
+     * stashAndClear, which is specifically for the survival-crossing
+     * snapshot and always clears as part of saving. Returns null if the
+     * player has no Curios handler.
+     */
+    public static ListTag saveOnly(ServerPlayer player) {
+        return CuriosApi.getCuriosInventory(player)
+                .map(handler -> handler.saveInventory(false))
+                .orElse(null);
+    }
+
     /** Restores a previously-saved Curios inventory. Does NOT clear current contents first -- call clearAll(player) beforehand if that's needed (it is, for the leave() anti-cheat flow). No-op if data is null or the player has no Curios handler. */
     public static void restore(ServerPlayer player, ListTag data) {
         if (data == null) {

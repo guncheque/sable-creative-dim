@@ -214,3 +214,63 @@ inventory. Worth testing deliberately: enter with an empty Curios head
 slot, equip something into it while inside, leave, confirm it's gone
 (not carried to survival) and whatever was originally there (if
 anything) is correctly back.
+
+## 18. Curios now included in the creative loadout (feature request)
+
+The original creative loadout system (section 13) deliberately excluded
+Curios accessory slots, only covering main inventory/armor/offhand. After
+real use, that turned out to be a genuine gap rather than the right
+scope -- players legitimately want their creative-mode accessories
+(e.g. goggles) to persist between visits the same way their tools/blocks
+already do.
+
+Added via a new `CuriosIntegration.saveOnly(player)` (non-destructive --
+captures current Curios state without clearing anything, distinct from
+`stashAndClear`, which always clears as part of saving and exists for the
+separate survival-snapshot purpose). `CreativeLoadout` now carries a
+`curios` field alongside the existing inventory data, captured at the
+same point in `leave()` as the rest of the loadout (before any clearing
+happens), and restored in `enter()` right after the main loadout is
+applied -- safe to restore directly with no extra clear step needed
+there, since `stashAndClear()` earlier in the same call already emptied
+every Curios slot for the survival-snapshot purpose.
+
+## 19. 50-block-thick floor (for tunnel bore testing)
+
+Swapped the flat-world generator's floor from a single grass block over
+void to 49 blocks of stone capped with 1 block of grass -- 50 total
+blocks of diggable depth, so tunnel bore contraptions have real material
+to chew through instead of hitting void one block down. Pure config
+change (`dimension/creative_testing.json`), no Java touched -- the total
+height (65 blocks: air + solid) is unchanged from before, only the split
+between air and solid changed, so the walkable surface sits at the exact
+same world Y as always and every hardcoded position (entry point,
+auto-built return portals) is still valid without modification.
+
+Same caveat as every previous floor-material change: world generation is
+baked in per-chunk once generated, so this only affects chunks that
+don't already exist. Two ways to actually get the new floor: delete
+`world/dimensions/sablecreativedim/creative_testing` for a clean
+regenerate (loses anything already built there), or just build/test in
+chunks you haven't visited yet in that dimension -- those will generate
+fresh with the new 50-block floor without touching what's already there.
+
+## 20. Corners now optional, matching vanilla Nether portal behavior
+
+Real root cause found for the "custom portal sizes don't light" report:
+the frame verification required all 4 exact corners to be Amethyst Block,
+which vanilla Nether portals never require -- vanilla only checks the
+straight edges, letting corners be empty/diagonal. Not a bug exactly, but
+a real behavioral gap from vanilla that was surprising in practice.
+
+Fixing this needed two coordinated changes, not one: `floodFillAmethyst`
+now traverses 8 directions (orthogonal AND diagonal) instead of just 4,
+since two edges meeting at a genuinely missing corner only touch
+diagonally -- purely-orthogonal flood fill could never have discovered
+them as one connected shape to begin with. Separately, the verification
+loops in both `findFrame` and the breakage-detection
+`checkAndClearIfBroken` now explicitly skip the 4 exact corner positions
+rather than requiring them, so a validly-lit corner-less frame doesn't
+get incorrectly cleared the next time something nearby changes. Also
+removed the temporary diagnostic logging added while investigating this
+-- no longer needed now that the real cause is confirmed and fixed.

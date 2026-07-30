@@ -27,6 +27,18 @@ import java.util.Set;
  * frame -- but it means oddly-shaped amethyst clusters near a real frame
  * could confuse the flood fill. Good enough for a hand-built frame; revisit
  * if players report false negatives on unusual shapes.
+ *
+ * CORNERS ARE OPTIONAL, matching vanilla Nether portal behavior -- the 4
+ * exact corner cells of the frame are never checked at all (can be air,
+ * can be anything), only the straight edges actually need to be Amethyst
+ * Block. This required two coordinated changes to work at all: the flood
+ * fill traverses 8 directions (orthogonal AND diagonal) rather than just
+ * 4, since two edges meeting at a missing corner only touch diagonally;
+ * and the verification loop (both in findFrame and in the breakage-check
+ * checkAndClearIfBroken) explicitly skips the 4 corner positions rather
+ * than requiring them. These two pieces must stay in sync -- one enables
+ * finding a corner-less shape as a single connected region, the other
+ * enables accepting it once found.
  */
 public final class AmethystFrameHelper {
 
@@ -136,12 +148,18 @@ public final class AmethystFrameHelper {
         }
 
         // The border ring is exactly one block outside the portal-cell
-        // bounding box on every side -- check it's still all Amethyst.
+        // bounding box on every side -- check the straight edges are
+        // still Amethyst. Corners are deliberately skipped here too,
+        // matching findFrame's corner-optional behavior -- a frame that
+        // was validly lit without corners must not be treated as
+        // "broken" just because its corners were never amethyst in the
+        // first place.
         boolean intact = true;
         for (int a = minX - 1; a <= maxX + 1 && intact; a++) {
             for (int b = minY - 1; b <= maxY + 1 && intact; b++) {
-                boolean isBorder = (a == minX - 1 || a == maxX + 1 || b == minY - 1 || b == maxY + 1);
-                if (!isBorder) {
+                boolean isEdge = (a == minX - 1 || a == maxX + 1 || b == minY - 1 || b == maxY + 1);
+                boolean isCorner = (a == minX - 1 || a == maxX + 1) && (b == minY - 1 || b == maxY + 1);
+                if (!isEdge || isCorner) {
                     continue;
                 }
                 BlockPos pos = axis == Direction.Axis.X
@@ -228,42 +246,37 @@ public final class AmethystFrameHelper {
         int interiorWidth = outerWidth - 2;
         int interiorHeight = outerHeight - 2;
 
-        // DIAGNOSTIC: temporary logging to pin down a real reported bug
-        // (custom-size frames failing to light) that wasn't conclusively
-        // explained by re-reading the algorithm alone. Safe to remove
-        // once the real cause is confirmed from actual server output.
-        System.out.println("[sablecreativedim] findFrame(axis=" + axis + "): clicked=" + start
-                + " seed=" + seed + " connectedAmethystCount=" + connected.size()
-                + " boundingBox=(" + minX + "," + minY + ")-(" + maxX + "," + maxY + ")"
-                + " outerWH=" + outerWidth + "x" + outerHeight
-                + " interiorWH=" + interiorWidth + "x" + interiorHeight);
-
         if (interiorWidth < MIN_INTERIOR_WIDTH || interiorWidth > MAX_INTERIOR_WIDTH
                 || interiorHeight < MIN_INTERIOR_HEIGHT || interiorHeight > MAX_INTERIOR_HEIGHT) {
-            System.out.println("[sablecreativedim] findFrame REJECTED: interior size " + interiorWidth
-                    + "x" + interiorHeight + " outside allowed range ["
-                    + MIN_INTERIOR_WIDTH + "-" + MAX_INTERIOR_WIDTH + "] x ["
-                    + MIN_INTERIOR_HEIGHT + "-" + MAX_INTERIOR_HEIGHT + "]");
             return null;
         }
 
         for (int a = minX; a <= maxX; a++) {
             for (int b = minY; b <= maxY; b++) {
-                boolean isBorder = (a == minX || a == maxX || b == minY || b == maxY);
+                boolean isEdge = (a == minX || a == maxX || b == minY || b == maxY);
+                // Matches vanilla Nether portal behavior: the 4 exact
+                // corners aren't checked at all -- can be air, can be
+                // anything. Only the straight edges (isEdge but NOT a
+                // corner) actually need to be Amethyst Block. Without
+                // this exception, floodFillAmethyst wouldn't even be
+                // ABLE to find a corner-less frame as one connected shape
+                // in the first place (see its own updated comment) --
+                // this check and that traversal change have to agree
+                // with each other for corner-optional frames to work.
+                boolean isCorner = (a == minX || a == maxX) && (b == minY || b == maxY);
+                if (isCorner) {
+                    continue;
+                }
                 BlockPos pos = axis == Direction.Axis.X
                         ? new BlockPos(a, b, fixedCoord)
                         : new BlockPos(fixedCoord, b, a);
                 BlockState state = level.getBlockState(pos);
-                if (isBorder) {
+                if (isEdge) {
                     if (!state.is(Blocks.AMETHYST_BLOCK)) {
-                        System.out.println("[sablecreativedim] findFrame REJECTED: expected AMETHYST at "
-                                + "border position " + pos + " but found " + state.getBlock());
                         return null;
                     }
                 } else {
                     if (!state.isAir()) {
-                        System.out.println("[sablecreativedim] findFrame REJECTED: expected AIR at "
-                                + "interior position " + pos + " but found " + state.getBlock());
                         return null;
                     }
                 }
@@ -273,8 +286,6 @@ public final class AmethystFrameHelper {
         BlockPos interiorMin = axis == Direction.Axis.X
                 ? new BlockPos(minX + 1, minY + 1, fixedCoord)
                 : new BlockPos(fixedCoord, minY + 1, minX + 1);
-        System.out.println("[sablecreativedim] findFrame SUCCESS: interior origin=" + interiorMin
-                + " " + interiorWidth + "x" + interiorHeight);
         return new Rect(interiorMin, interiorWidth, interiorHeight);
     }
 
@@ -295,13 +306,30 @@ public final class AmethystFrameHelper {
         return null;
     }
 
+    /**
+     * Flood-fills connected Amethyst Block cells in a single plane,
+     * starting from seed. Uses 8-directional traversal (orthogonal AND
+     * diagonal) rather than just the 4 orthogonal directions -- this is
+     * what actually makes corner-optional frames possible at all: two
+     * edges that meet at a missing corner only touch DIAGONALLY (the
+     * corner cell between them is empty), so purely-orthogonal traversal
+     * could never discover them as one connected shape in the first
+     * place. This has to stay in sync with findFrame's corner exception
+     * in the verification loop -- one enables finding the shape, the
+     * other enables accepting it once found.
+     */
     private static Set<BlockPos> floodFillAmethyst(ServerLevel level, BlockPos seed, Direction.Axis axis) {
         Set<BlockPos> visited = new HashSet<>();
         Deque<BlockPos> queue = new ArrayDeque<>();
         queue.add(seed);
-        Direction[] inPlane = axis == Direction.Axis.X
-                ? new Direction[]{Direction.UP, Direction.DOWN, Direction.EAST, Direction.WEST}
-                : new Direction[]{Direction.UP, Direction.DOWN, Direction.NORTH, Direction.SOUTH};
+
+        // All 8 offsets in-plane: 4 orthogonal + 4 diagonal. (da, db) are
+        // expressed in the plane's own (a, b) coordinates -- a maps to
+        // X for axis=X or Z for axis=Z, b always maps to Y.
+        int[][] offsets = {
+                {0, 1}, {0, -1}, {1, 0}, {-1, 0},   // orthogonal
+                {1, 1}, {1, -1}, {-1, 1}, {-1, -1}  // diagonal
+        };
 
         int limit = (MAX_INTERIOR_WIDTH + 2) * (MAX_INTERIOR_HEIGHT + 2) * 4;
 
@@ -314,8 +342,10 @@ public final class AmethystFrameHelper {
                 continue;
             }
             visited.add(current);
-            for (Direction dir : inPlane) {
-                BlockPos next = current.relative(dir);
+            for (int[] offset : offsets) {
+                BlockPos next = axis == Direction.Axis.X
+                        ? current.offset(offset[0], offset[1], 0)
+                        : current.offset(0, offset[1], offset[0]);
                 if (!visited.contains(next)) {
                     queue.add(next);
                 }

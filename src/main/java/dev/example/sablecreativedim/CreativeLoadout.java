@@ -2,6 +2,7 @@ package dev.example.sablecreativedim;
 
 import net.minecraft.core.HolderLookup;
 import net.minecraft.nbt.CompoundTag;
+import net.minecraft.nbt.ListTag;
 import net.minecraft.nbt.Tag;
 import net.minecraft.world.item.ItemStack;
 
@@ -14,12 +15,18 @@ import net.minecraft.world.item.ItemStack;
  *
  * This is intentionally separate from PlayerSnapshot: PlayerSnapshot is
  * "what to give back on leave" (their survival state), CreativeLoadout is
- * "what to give on enter" (their remembered creative setup). Curios slots
- * are deliberately NOT part of this -- the loadout only covers main
- * inventory, armor, and offhand, matching what's actually meant by
- * "creative inventory setup" here rather than accessory items.
+ * "what to give on enter" (their remembered creative setup).
+ *
+ * Curios ARE now part of this (added after initial release, following a
+ * real user request) -- captured non-destructively via
+ * CuriosIntegration#saveOnly right alongside the main inventory capture,
+ * and restored via CuriosIntegration#restore right after the main
+ * inventory loadout is applied. Safe to restore directly without an
+ * extra clearAll() first at that point in enter()'s flow, since
+ * stashAndClear() already emptied every Curios slot earlier in the same
+ * call, for the (separate) survival-snapshot purpose.
  */
-public record CreativeLoadout(ItemStack[] mainInventory, ItemStack[] armor, ItemStack offhand) {
+public record CreativeLoadout(ItemStack[] mainInventory, ItemStack[] armor, ItemStack offhand, ListTag curios) {
 
     public CompoundTag toNbt(HolderLookup.Provider registries) {
         CompoundTag tag = new CompoundTag();
@@ -27,6 +34,9 @@ public record CreativeLoadout(ItemStack[] mainInventory, ItemStack[] armor, Item
         tag.put("Armor", ItemStackNbtUtil.itemsToList(armor, registries));
         if (!offhand.isEmpty()) {
             tag.put("Offhand", offhand.save(registries));
+        }
+        if (curios != null) {
+            tag.put("Curios", curios);
         }
         return tag;
     }
@@ -37,6 +47,7 @@ public record CreativeLoadout(ItemStack[] mainInventory, ItemStack[] armor, Item
         ItemStack offhand = tag.contains("Offhand")
                 ? ItemStack.parseOptional(registries, tag.getCompound("Offhand"))
                 : ItemStack.EMPTY;
-        return new CreativeLoadout(main, armor, offhand);
+        ListTag curios = tag.contains("Curios") ? tag.getList("Curios", Tag.TAG_COMPOUND) : null;
+        return new CreativeLoadout(main, armor, offhand, curios);
     }
 }
